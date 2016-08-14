@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags always come first -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+
+    <!-- Bootstrap CSS -->
+
+  <title>RGB LED via WebSocket</title>
+
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.3/css/bootstrap.min.css" integrity="sha384-MIwDKRSSImVFAZCVLtU0LMDdON6KVCrZHyVQQj6e8wIEJkW4tvwqXrbMIya1vriY" crossorigin="anonymous">
+
+  <style type = "text/css">
+  .output {
+    font-family: monospace;
+    width: 80%;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 1em;
+    background-color: #eeeeee;
+    padding: 1em;
+    border: 5px groove #cccccc;
+    -moz-border-radius: 15px;
+    -webkit-border-radius: 15px;
+    -moz-box-shadow: 10px 10px 10px #000000;
+    -webkit-box-shadow: 10px 10px 10px #000000;
+  } 
+  </style>
+
+  <script language="javascript" type="text/javascript">
+  var output;
+  var websocket;
+  var red, green, blue;
+
+  function init(){
+    output = document.getElementById("output");
+  }
+
+  function connect(){
+    //open socket
+    if ("WebSocket" in window){
+      websocket = new WebSocket("ws://localhost:9000/");
+      websocket.binaryType = "arraybuffer";
+      output.innerHTML = "connecting..." ;
+  
+      //attach event handlers
+      websocket.onopen = onOpen;
+      websocket.onclose = onClose;
+      websocket.onmessage = onMessage;
+      websocket.onerror = onError;
+      red=0
+      green=0
+      blue=0
+    } else {
+      alert("WebSockets not supported on your browser.");
+    }
+  }
+
+  // Convert the arraybuffer we get back from the WS server into a String
+
+  function ab2str(buf) {
+    return String.fromCharCode.apply(null, new Uint8Array(buf));
+  }
+
+  function onOpen(evt){
+    //called as soon as a connection is opened
+    output.innerHTML = "<p>CONNECTED TO SERVER</p>";
+    // Once connected, get the current RGB values by simply sending a "?"
+    //websocket.send("?");
+    // ws-bridge bails out ungracefully if sent too fast before
+    // it is configured to use arrays:
+    //     throw new TypeError('"list" argument must be an Array of Buffers');
+    // Thus we wait a while (1000ms)
+    setTimeout(function() {
+      websocket.send("?");
+    }, 1000);
+  }
+
+  function onClose(evt){
+    //called when connection is severed
+    output.innerHTML += "<p>DISCONNECTED</p>";
+    connectButtonReset();
+  }
+
+  function setOneColor(c, v) {
+    switch(c) {
+      case 'R': red=v; break;
+      case 'G': green=v; break;
+      case 'B': blue=v;
+    }
+  }
+
+  function setColorValues(s) {
+    // Could use regexp here, but doing this the hard way
+    var value;
+    var state=0; // 0=nothing yet, 1=color defined and R|G|B found
+    var color;
+    var c;
+
+    for (c of s.split('')) {
+      if (c>='0' && c<='9') {
+        if (state==1)
+            value=10*value+c.charCodeAt()-48;
+      } else {
+        if (state==1) {
+         // We got a non-digit, so finish the previous assignment (color=value)
+          setOneColor(color, value);
+          }
+          state=0;
+        }
+        // Check for R, G or B
+        if (c=='R' || c=='G' || c=='B') {
+          color=c;
+          value=0;
+          state=1;
+        }
+    }
+    if (state==1)
+      setOneColor(c, v);
+  }
+
+  function onMessage(evt){
+    //called on receipt of message
+    var s;
+
+    s=ab2str(evt.data);
+    output.innerHTML += "<p class = 'response'>RESPONSE: " 
+      + s + "</p>";
+
+    setColorValues(s);
+    document.getElementById("rgbvalues").innerHTML="<div>R="+red+" G="+green+" B="+blue+"</div>"
+  }
+
+  function onError(evt){
+    //called on error
+    output.innerHTML += "<p class = 'error'>ERROR: " 
+      + ab2str(evt.data) + "</p>";
+  }
+
+  function redToggle() {
+    red=(red==0)?255:0;
+    websocket.send("R"+red);
+    output.innerHTML+="<p>R"+red+"<p>"
+  }
+  function greenToggle() {
+    green=(green==0)?255:0;
+    websocket.send("G"+green);
+    output.innerHTML+="<p>G"+green+"<p>"
+  }
+  function blueToggle() {
+    blue=(blue==0)?255:0;
+    websocket.send("B"+blue);
+    output.innerHTML+="<p>B"+blue+"<p>"
+  }
+
+  function clearLog() {
+    output.innerHTML="";
+  }
+
+  function connectButton( el ) {
+    if ( el.value === "Connect" ) {
+      el.value = "Disconnect";
+      el.innerHTML="Disconnect";
+      connect();
+    }
+    else {
+      connectButtonReset()
+      websocket.close();
+    }
+  }
+
+  function connectButtonReset() {
+    document.getElementById("myConnect").value="Connect";
+    document.getElementById("myConnect").innerHTML="Connect";
+  }
+
+  function sendMessage(){
+    //get message from text field
+    txtMessage = document.getElementById("txtMessage");
+    message = txtMessage.value;
+    //pass message to server
+    websocket.send(message);
+    output.innerHTML += "<p>MESSAGE SENT: " + message + "</p>";
+  }
+  
+  </script>
+</head>
+
+<body onload = "init()">
+  <h1>RGB LED via WebSocket Test</h1>
+  <form action = "">
+    <fieldset>
+      <button type = "button" class="btn" id="myConnect" value="Connect"
+              onclick = "connectButton(this)">Connect</button>
+      <!--
+      <button type = "button" class="btn"
+              onclick = "websocket.close()">
+        disconnect
+      </button>
+      -->
+      <!-- Missuse of btn-danger/success/primary ahead -->
+      <button type="button" class="btn btn-danger" onclick="redToggle()">Red</button>
+      <button type="button" class="btn btn-success" onclick="greenToggle()">Green</button>
+      <button type="button" class="btn btn-primary" onclick="blueToggle()">Blue</button>
+
+      <button type="button" class="btn" onclick="clearLog()">Clear Log</button>
+
+      <label for = "txtMessage">
+        <input type = "text"
+               id = "txtMessage" placeholder="e.g. R10 or G20 or B30"
+               value = "" />
+      </label>
+      <button type = "button" class="btn"
+              onclick = "sendMessage()">
+        send message
+      </button>
+
+    </fieldset>
+  </form>
+  <div id="rgbvalues" class="output">R=? G=? B=?</div>
+  <div id="output" class="output">Click 'connect' button to connect</div>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.0.0/jquery.min.js" integrity="sha384-THPy051/pYDQGanwU6poAc/hOdQxjnOEXzbT+OuUAFqNqFjL+4IGLBgCJC3ZOShY" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.2.0/js/tether.min.js" integrity="sha384-Plbmg8JY28KFelvJVai01l8WyZzrYWG825m+cZ0eDDS1f7d/js6ikvy1+X+guPIB" crossorigin="anonymous"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.3/js/bootstrap.min.js" integrity="sha384-ux8v3A6CPtOTqOzMKiuo3d/DomGaaClxFYdCu2HPMBEkf6x2xiDyJ7gkXU0MWwaD" crossorigin="anonymous"></script>
+</body>
+</html>
