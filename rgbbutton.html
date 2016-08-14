@@ -107,15 +107,15 @@
         if (state==1) {
          // We got a non-digit, so finish the previous assignment (color=value)
           setOneColor(color, value);
-          }
           state=0;
-        }
+          }
         // Check for R, G or B
         if (c=='R' || c=='G' || c=='B') {
           color=c;
           value=0;
           state=1;
         }
+      }
     }
     if (state==1)
       setOneColor(c, v);
