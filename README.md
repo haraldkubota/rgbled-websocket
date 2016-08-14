@@ -12,5 +12,6 @@ WS2812 LED on NodeMCU, controlled via the web browser
 * Firmware NodeMCU 1.5.4 built by http://nodemcu-build.com/
 * ws-tcp-bridge is from https://github.com/andrewchambers/ws-tcp-bridge
 * I left a bit debugging in the Lua code as this is not a production-ready code
-* I use a Wemos D1 http://www.wemos.cc/ and its WS2812 RGB LED shield modified to use D4 instead of D2
+* I use a Wemos D1 http://www.wemos.cc/ and its WS2812 RGB LED shield modified to use D4 instead of D2, see http://harald.studiokubota.com/wordpress/index.php/2016/08/13/wemos-ws2812-and-oled/
+
 
